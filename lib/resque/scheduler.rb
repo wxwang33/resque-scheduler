@@ -197,7 +197,7 @@ module Resque
 
         if item
           log "queuing #{item['class']} [delayed]"
-          enqueue(item)
+          enqueue(item, front: true)
         end
 
         item
@@ -217,8 +217,8 @@ module Resque
         end
       end
 
-      def enqueue(config)
-        enqueue_from_config(config)
+      def enqueue(config, front: false)
+        enqueue_from_config(config, front: front)
       rescue => e
         Resque::Scheduler.failure_handler.on_enqueue_failure(config, e)
       end
@@ -230,7 +230,7 @@ module Resque
       end
 
       # Enqueues a job based on a config hash
-      def enqueue_from_config(job_config)
+      def enqueue_from_config(job_config, front: false)
         args = job_config['args'] || job_config[:args]
 
         klass_name = job_config['class'] || job_config[:class]
@@ -276,6 +276,8 @@ module Resque
             if klass.respond_to?(:scheduled)
               klass.scheduled(queue, klass_name, *params)
             else
+              params.first.merge!(to_top: true) if front
+
               Resque.enqueue_to(queue, klass, *params)
             end
           else
